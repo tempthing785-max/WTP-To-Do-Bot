@@ -1,0 +1,28 @@
+{
+  "panels": [
+    {
+      "channelId": "1484960000009961522",
+      "staffRoles": [
+        "1457969468176204000"
+      ],
+      "header": "gdsgsgsgsgs",
+      "color": "F54927"
+    },
+    {
+      "channelId": "1484985841272094971",
+      "staffRoles": [
+        "320951718844301312"
+      ],
+      "header": "huh",
+      "color": "F54927"
+    },
+    {
+      "channelId": "1484985855322886406",
+      "staffRoles": [
+        "320951718844301312"
+      ],
+      "header": "Dev List",
+      "color": "F54927"
+    }
+  ]
+}
