@@ -28,7 +28,13 @@ const startScheduler = require("./scheduler");
 const { command: setupCommand, handle: setupHandler } = require("./setup");
 const { renderPanel } = require("./panel");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({ 
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers
+  ] 
+});
 
 // =====================
 // CONFIG LOADER
@@ -115,7 +121,8 @@ client.on("interactionCreate", async (interaction) => {
 
         case "complete":
         case "reset": {
-          const task = (await getTasks(interaction.channel.id)).find(t => t.id == taskId);
+          const tasks = await getTasks(interaction.channel.id);
+          const task = tasks.find(t => t.id == taskId);
           if (!task) return interaction.reply({ content: "Task not found.", ephemeral: true });
 
           const subs = JSON.parse(task.subtasks);
@@ -170,9 +177,17 @@ client.on("interactionCreate", async (interaction) => {
     // -----------------
     if (interaction.isStringSelectMenu()) {
       const [action] = interaction.customId.split("_");
-      const taskId = interaction.values[0];
+      let taskId, task;
 
-      const task = (await getTasks(interaction.channel.id)).find(t => t.id == taskId);
+      // Determine taskId based on menu type
+      if (action === "toggle") {
+        taskId = interaction.customId.split("_")[1]; // task ID comes from customId
+      } else {
+        taskId = interaction.values[0]; // task ID comes from selected value
+      }
+
+      const tasks = await getTasks(interaction.channel.id);
+      task = tasks.find(t => t.id == taskId);
       if (!task) return interaction.reply({ content: "Task not found.", ephemeral: true });
 
       if (action === "view") {
@@ -230,7 +245,11 @@ client.on("interactionCreate", async (interaction) => {
 
   } catch (err) {
     console.error("Interaction error:", err);
-    if (!interaction.replied) interaction.reply({ content: "❌ Something went wrong.", ephemeral: true });
+    if (interaction.deferred || interaction.replied) {
+      interaction.editReply({ content: "❌ Something went wrong." }).catch(() => {});
+    } else {
+      interaction.reply({ content: "❌ Something went wrong.", ephemeral: true }).catch(() => {});
+    }
   }
 });
 
