@@ -60,20 +60,25 @@ function hasStaffPermission(interaction) {
 // DATE PARSER UTILITY
 // -------------------------
 function parseDueDate(input) {
-  // Try default Date.parse first
-  let timestamp = Date.parse(input);
-  if (!isNaN(timestamp)) return timestamp;
+  const match = input.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) return null;
 
-  // Try custom DD/MM/YYYY HH:MM format
-  const parts = input.split(" ");
-  if (parts.length !== 2) return null;
+  let [_, day, month, year] = match;
+  day = parseInt(day);
+  month = parseInt(month) - 1; // JS months start at 0
+  year = parseInt(year);
 
-  const [datePart, timePart] = parts;
-  const [day, month, year] = datePart.split("/").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  const date = new Date(year, month - 1, day, hour, minute);
-  if (isNaN(date)) return null;
-  return date.getTime();
+  // Set time to 23:59:59 to mark “end of day”
+  return new Date(year, month, day, 23, 59, 59).getTime();
+}
+
+const dueInput = interaction.fields.getTextInputValue("due");
+const parsedDate = parseDueDate(dueInput);
+if (!parsedDate) {
+  return interaction.reply({
+    content: "❌ Invalid date format. Use DD-MM-YYYY",
+    ephemeral: true
+  });
 }
 
 // -------------------------
