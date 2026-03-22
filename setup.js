@@ -38,6 +38,10 @@ const setupCommand = new SlashCommandBuilder()
   .addStringOption(option =>
     option.setName("header")
       .setDescription("Panel header text")
+      .setRequired(false))
+  .addStringOption(option =>
+    option.setName("imageurl")
+      .setDescription("Optional header image URL")
       .setRequired(false));
 
 const removePanelCommand = new SlashCommandBuilder()
@@ -67,13 +71,15 @@ async function handle(interaction) {
     const channel = interaction.options.getChannel("channel");
     const header = interaction.options.getString("header") || "📝 Staff To-Do List";
     const color = interaction.options.getString("color");
+    const imageUrl = interaction.options.getString("imageurl") || null;
 
     const existingIndex = config.panels.findIndex(p => p.channelId === channel.id);
     const panelData = {
       channelId: channel.id,
       staffRoles: [role.id],
       header,
-      color
+      color,
+      imageUrl
     };
 
     if (existingIndex >= 0) config.panels[existingIndex] = panelData;
@@ -85,7 +91,7 @@ async function handle(interaction) {
     const targetChannel = await interaction.guild.channels.fetch(channel.id);
     await renderPanel(targetChannel, interaction.client);
 
-    return interaction.reply(`✅ Panel setup complete!\nChannel: ${channel.name}\nHeader: ${header}\nColor: ${color}`);
+    return interaction.reply(`✅ Panel setup complete!\nChannel: ${channel.name}\nHeader: ${header}\nColor: ${color}${imageUrl ? `\nImage: ${imageUrl}` : ""}`);
   }
 
   else if (interaction.commandName === "removepanel") {
@@ -103,7 +109,7 @@ async function handle(interaction) {
     if (!config.panels.length) return interaction.reply({ content: "No panels configured yet.", ephemeral: true });
 
     const lines = config.panels.map(p => {
-      return `• Channel: <#${p.channelId}>\n  Header: ${p.header}\n  Color: ${p.color}\n  Staff Roles: ${p.staffRoles.map(r => `<@&${r}>`).join(", ")}`;
+      return `• Channel: <#${p.channelId}>\n  Header: ${p.header}\n  Color: ${p.color}\n  Image: ${p.imageUrl || "None"}\n  Staff Roles: ${p.staffRoles.map(r => `<@&${r}>`).join(", ")}`;
     }).join("\n\n");
 
     return interaction.reply({ content: `📋 Configured Panels:\n\n${lines}`, ephemeral: true });
