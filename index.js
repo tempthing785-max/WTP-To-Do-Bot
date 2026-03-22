@@ -71,7 +71,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     const panel = getPanel(interaction.channelId);
-    if (!panel) return; // only operate in configured panels
+    if (!panel) return; 
 
     // -----------------
     // Buttons
@@ -173,110 +173,116 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     // -----------------
-// Select menus
-// -----------------
-if (interaction.isStringSelectMenu()) {
-  try {
-    const [action] = interaction.customId.split("_");
-    let taskId, task;
+    // Select menus
+    // -----------------
+    if (interaction.isStringSelectMenu()) {
+      try {
+        const [action] = interaction.customId.split("_");
+        let taskId, task;
 
-    // Determine taskId based on menu type
-    if (action === "toggle") {
-      // Subtask toggle: taskId is in customId, subtask index in values
-      taskId = interaction.customId.split("_")[1];
-    } else {
-      // Task selection menus: taskId is selected value
-      taskId = interaction.values[0];
-    }
+        if (action === "toggle") {
+          taskId = interaction.customId.split("_")[1]; 
+        } else {
+          taskId = interaction.values[0]; 
+        }
 
-    const tasks = await getTasks(interaction.channel.id);
-    task = tasks.find(t => t.id == taskId);
-    if (!task) return interaction.reply({ content: "Task not found.", ephemeral: true });
+        const tasks = await getTasks(interaction.channel.id);
+        task = tasks.find(t => t.id == taskId);
+        if (!task) return interaction.reply({ content: "Task not found.", ephemeral: true });
 
-    // ----- VIEW -----
-    if (action === "view") {
-      const subs = JSON.parse(task.subtasks);
+        // ----- VIEW -----
+        if (action === "view") {
+          const subs = JSON.parse(task.subtasks);
 
-      const embed = new EmbedBuilder()
-        .setTitle(task.title)
-        .setDescription(subs.map(s => `${s.done ? "✅" : "⬜"} ${s.name}`).join("\n"));
+          const embed = new EmbedBuilder()
+            .setTitle(task.title)
+            .setDescription(subs.map(s => `${s.done ? "✅" : "⬜"} ${s.name}`).join("\n"));
 
-      const toggleMenu = new StringSelectMenuBuilder()
-        .setCustomId(`toggle_${task.id}`)
-        .setPlaceholder("Toggle subtask")
-        .addOptions(subs.map((s, i) => ({ label: s.name, value: String(i) })));
+          const toggleMenu = new StringSelectMenuBuilder()
+            .setCustomId(`toggle_${task.id}`)
+            .setPlaceholder("Toggle subtask")
+            .addOptions(subs.map((s, i) => ({ label: s.name, value: String(i) })));
 
-      const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`complete_${task.id}`).setLabel("✅ All").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reset_${task.id}`).setLabel("🔄 Reset").setStyle(ButtonStyle.Secondary)
-      );
+          const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`complete_${task.id}`).setLabel("✅ All").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reset_${task.id}`).setLabel("🔄 Reset").setStyle(ButtonStyle.Secondary)
+          );
 
-      return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(toggleMenu), buttons] });
-    }
+          return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(toggleMenu), buttons] });
+        }
 
-    // ----- EDIT -----
-    if (action === "edit") {
-      const modal = new ModalBuilder().setCustomId(`edit_modal_${task.id}`).setTitle("Edit Task");
-      const fields = [
-        ["title", "Task Title", task.title],
-        ["assign", "Assign User ID", task.assigned_to],
-        ["due", "Due (day/month/year hh:mm)", new Date(task.due_date).toISOString().slice(0,16)],
-        ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n")]
-      ];
-      modal.addComponents(fields.map(([id, label, value]) =>
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId(id)
-            .setLabel(label)
-            .setStyle(id === "details" ? TextInputStyle.Paragraph : TextInputStyle.Short)
-            .setValue(value)
-        )
-      ));
-      return interaction.showModal(modal);
-    }
+        // ----- EDIT -----
+        if (action === "edit") {
+          const modal = new ModalBuilder().setCustomId(`edit_modal_${task.id}`).setTitle("Edit Task");
+          const fields = [
+            ["title", "Task Title", task.title],
+            ["assign", "Assign User ID", task.assigned_to],
+            ["due", "Due (day/month/year hh:mm)", new Date(task.due_date).toISOString().slice(0,16)],
+            ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n")]
+          ];
+          modal.addComponents(fields.map(([id, label, value]) =>
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId(id)
+                .setLabel(label)
+                .setStyle(id === "details" ? TextInputStyle.Paragraph : TextInputStyle.Short)
+                .setValue(value)
+            )
+          ));
+          return interaction.showModal(modal);
+        }
 
-    // ----- DELETE -----
-    if (action === "delete") {
-      await deleteTask(task.id);
-      await renderPanel(interaction.channel, interaction.client);
-      return interaction.reply({ content: "Task deleted!", ephemeral: true });
-    }
+        // ----- DELETE -----
+        if (action === "delete") {
+          await deleteTask(task.id);
+          await renderPanel(interaction.channel, interaction.client);
+          return interaction.reply({ content: "Task deleted!", ephemeral: true });
+        }
 
-    // ----- TOGGLE SUBTASK -----
-    if (action === "toggle") {
-      const index = parseInt(interaction.values[0], 10);
-      const subs = JSON.parse(task.subtasks);
-      subs[index].done = !subs[index].done;
-      await updateTask(task.id, { subtasks: JSON.stringify(subs) });
+        // ----- TOGGLE SUBTASK -----
+        if (action === "toggle") {
+          const index = parseInt(interaction.values[0], 10);
+          const subs = JSON.parse(task.subtasks);
+          subs[index].done = !subs[index].done;
+          await updateTask(task.id, { subtasks: JSON.stringify(subs) });
 
-      // Rebuild embed + dropdown to reflect new state
-      const embed = new EmbedBuilder()
-        .setTitle(task.title)
-        .setDescription(subs.map(s => `${s.done ? "✅" : "⬜"} ${s.name}`).join("\n"));
+          const embed = new EmbedBuilder()
+            .setTitle(task.title)
+            .setDescription(subs.map(s => `${s.done ? "✅" : "⬜"} ${s.name}`).join("\n"));
 
-      const toggleMenu = new StringSelectMenuBuilder()
-        .setCustomId(`toggle_${task.id}`)
-        .setPlaceholder("Toggle subtask")
-        .addOptions(subs.map((s, i) => ({ label: s.name, value: String(i) })));
+          const toggleMenu = new StringSelectMenuBuilder()
+            .setCustomId(`toggle_${task.id}`)
+            .setPlaceholder("Toggle subtask")
+            .addOptions(subs.map((s, i) => ({ label: s.name, value: String(i) })));
 
-      const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`complete_${task.id}`).setLabel("✅ All").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`reset_${task.id}`).setLabel("🔄 Reset").setStyle(ButtonStyle.Secondary)
-      );
+          const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`complete_${task.id}`).setLabel("✅ All").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`reset_${task.id}`).setLabel("🔄 Reset").setStyle(ButtonStyle.Secondary)
+          );
 
-      return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(toggleMenu), buttons] });
+          return interaction.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(toggleMenu), buttons] });
+        }
+
+      } catch (err) {
+        console.error("Select menu error:", err);
+        if (interaction.deferred || interaction.replied) {
+          interaction.editReply({ content: "❌ Something went wrong." }).catch(() => {});
+        } else {
+          interaction.reply({ content: "❌ Something went wrong.", ephemeral: true }).catch(() => {});
+        }
+      }
     }
 
   } catch (err) {
-    console.error("Select menu error:", err);
+    console.error("Interaction error:", err);
     if (interaction.deferred || interaction.replied) {
       interaction.editReply({ content: "❌ Something went wrong." }).catch(() => {});
     } else {
       interaction.reply({ content: "❌ Something went wrong.", ephemeral: true }).catch(() => {});
     }
   }
-}
-    
+}); 
+
 // =====================
 // STARTUP
 // =====================
