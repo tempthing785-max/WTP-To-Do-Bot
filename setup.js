@@ -29,22 +29,24 @@ const setupCommand = new SlashCommandBuilder()
       .setDescription("Channel for panel")
       .setRequired(true))
   .addStringOption(option =>
-    option.setName("header")
-      .setDescription("Panel header text")
-      .setRequired(false))
-  .addStringOption(option =>
     option.setName("color")
       .setDescription("Panel color")
       .setRequired(true)
       .addChoices(
         ...Object.entries(COLORS).map(([name, hex]) => ({ name, value: hex }))
-      )
-  );
+      ))
+  .addStringOption(option =>
+    option.setName("header")
+      .setDescription("Panel header text")
+      .setRequired(false));
 
 const removePanelCommand = new SlashCommandBuilder()
   .setName("removepanel")
   .setDescription("Remove a to-do panel")
-  .addChannelOption(option => option.setName("channel").setDescription("Channel to remove").setRequired(true));
+  .addChannelOption(option =>
+    option.setName("channel")
+      .setDescription("Channel to remove")
+      .setRequired(true));
 
 const listPanelsCommand = new SlashCommandBuilder()
   .setName("listpanels")
