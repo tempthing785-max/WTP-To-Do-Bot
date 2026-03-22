@@ -112,7 +112,7 @@ client.on("interactionCreate", async (interaction) => {
       switch (btnAction) {
         case "create": {
           const modal = new ModalBuilder().setCustomId("create_task").setTitle("Create Task");
-          const fields = [
+          const  = [
             ["title", "Task Title"],
             ["assign", "Assign User ID"],
             ["due", "Due (DD/MM/YYYY HH:MM or YYYY-MM-DD HH:MM)"],
@@ -257,22 +257,31 @@ client.on("interactionCreate", async (interaction) => {
 
         // ----- EDIT -----
         if (action === "edit") {
-          const modal = new ModalBuilder().setCustomId(`edit_modal_${task.id}`).setTitle("Edit Task");
+          const modal = new ModalBuilder()
+            .setCustomId(`edit_modal_${task.id}`)
+            .setTitle("Edit Task");
+        
+          // Format the existing due date as DD-MM-YYYY
+          const d = new Date(task.due_date);
+          const dueLabel = `${d.getDate().toString().padStart(2,'0')}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getFullYear()}`;
+        
           const fields = [
             ["title", "Task Title", task.title],
             ["assign", "Assign User ID", task.assigned_to],
-            ["due", "Due (DD/MM/YYYY HH:MM)", new Date(task.due_date).toISOString().slice(0,16)],
-            ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n")]
+            ["due", "Due Date (DD-MM-YYYY)", dueLabel],  // <- formatted value
+            ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n"), TextInputStyle.Paragraph]
           ];
-          modal.addComponents(fields.map(([id, label, value]) =>
+        
+          modal.addComponents(fields.map(([id, label, value, style]) =>
             new ActionRowBuilder().addComponents(
               new TextInputBuilder()
                 .setCustomId(id)
                 .setLabel(label)
-                .setStyle(id === "details" ? TextInputStyle.Paragraph : TextInputStyle.Short)
+                .setStyle(style || (id === "details" ? TextInputStyle.Paragraph : TextInputStyle.Short))
                 .setValue(value)
             )
           ));
+        
           return interaction.showModal(modal);
         }
 
