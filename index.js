@@ -68,17 +68,8 @@ function parseDueDate(input) {
   month = parseInt(month) - 1; // JS months start at 0
   year = parseInt(year);
 
-  // Set time to 23:59:59 to mark “end of day”
+  // End-of-day timestamp
   return new Date(year, month, day, 23, 59, 59).getTime();
-}
-
-const dueInput = interaction.fields.getTextInputValue("due");
-const parsedDate = parseDueDate(dueInput);
-if (!parsedDate) {
-  return interaction.reply({
-    content: "❌ Invalid date format. Use DD-MM-YYYY",
-    ephemeral: true
-  });
 }
 
 // -------------------------
@@ -110,19 +101,26 @@ client.on("interactionCreate", async (interaction) => {
       const [btnAction, taskId] = interaction.customId.split("_");
 
       switch (btnAction) {
+        // ----- CREATE TASK MODAL -----
         case "create": {
           const modal = new ModalBuilder().setCustomId("create_task").setTitle("Create Task");
-          const  = [
+
+          const fields = [
             ["title", "Task Title"],
             ["assign", "Assign User ID"],
-            ["due", "Due (DD/MM/YYYY HH:MM or YYYY-MM-DD HH:MM)"],
+            ["due", "Due Date (DD-MM-YYYY)"],  // updated label
             ["details", "Subtasks (one per line)", TextInputStyle.Paragraph]
           ];
+
           modal.addComponents(fields.map(([id,label,style]) =>
             new ActionRowBuilder().addComponents(
-              new TextInputBuilder().setCustomId(id).setLabel(label).setStyle(style||TextInputStyle.Short)
+              new TextInputBuilder()
+                .setCustomId(id)
+                .setLabel(label)
+                .setStyle(style || TextInputStyle.Short)
             )
           ));
+
           return interaction.showModal(modal);
         }
 
@@ -164,16 +162,16 @@ client.on("interactionCreate", async (interaction) => {
     // Modals
     // -----------------
     if (interaction.type === InteractionType.ModalSubmit) {
+      // ----- CREATE TASK -----
       if (interaction.customId === "create_task") {
         const subtasks = interaction.fields.getTextInputValue("details")
           .split("\n").filter(x => x.trim()).map(x => ({ name: x, done: false }));
 
-        // Safe date parsing
         const dueInput = interaction.fields.getTextInputValue("due");
         const parsedDate = parseDueDate(dueInput);
         if (!parsedDate) {
           return interaction.reply({
-            content: "❌ Invalid date format. Use `DD/MM/YYYY HH:MM` or `YYYY-MM-DD HH:MM`",
+            content: "❌ Invalid date format. Use DD-MM-YYYY",
             ephemeral: true
           });
         }
@@ -190,6 +188,7 @@ client.on("interactionCreate", async (interaction) => {
         return interaction.reply({ content: "Task created!", ephemeral: true });
       }
 
+      // ----- EDIT TASK -----
       if (interaction.customId.startsWith("edit_modal_")) {
         const taskId = interaction.customId.split("_")[2];
         const subtasks = interaction.fields.getTextInputValue("details")
@@ -199,7 +198,7 @@ client.on("interactionCreate", async (interaction) => {
         const parsedDate = parseDueDate(dueInput);
         if (!parsedDate) {
           return interaction.reply({
-            content: "❌ Invalid date format. Use `DD/MM/YYYY HH:MM` or `YYYY-MM-DD HH:MM`",
+            content: "❌ Invalid date format. Use DD-MM-YYYY",
             ephemeral: true
           });
         }
@@ -261,14 +260,13 @@ client.on("interactionCreate", async (interaction) => {
             .setCustomId(`edit_modal_${task.id}`)
             .setTitle("Edit Task");
         
-          // Format the existing due date as DD-MM-YYYY
           const d = new Date(task.due_date);
           const dueLabel = `${d.getDate().toString().padStart(2,'0')}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getFullYear()}`;
         
           const fields = [
             ["title", "Task Title", task.title],
             ["assign", "Assign User ID", task.assigned_to],
-            ["due", "Due Date (DD-MM-YYYY)", dueLabel],  // <- formatted value
+            ["due", "Due Date (DD-MM-YYYY)", dueLabel],
             ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n"), TextInputStyle.Paragraph]
           ];
         
