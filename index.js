@@ -36,9 +36,9 @@ const client = new Client({
   ] 
 });
 
-// =====================
-// CONFIG LOADER
-// =====================
+// -------------------------
+// CONFIG HELPERS
+// -------------------------
 function loadConfig() {
   if (!fs.existsSync("./config.json")) return { panels: [] };
   const data = JSON.parse(fs.readFileSync("./config.json"));
@@ -56,9 +56,29 @@ function hasStaffPermission(interaction) {
   return panel && interaction.member.roles.cache.some(role => panel.staffRoles.includes(role.id));
 }
 
-// =====================
+// -------------------------
+// DATE PARSER UTILITY
+// -------------------------
+function parseDueDate(input) {
+  // Try default Date.parse first
+  let timestamp = Date.parse(input);
+  if (!isNaN(timestamp)) return timestamp;
+
+  // Try custom DD/MM/YYYY HH:MM format
+  const parts = input.split(" ");
+  if (parts.length !== 2) return null;
+
+  const [datePart, timePart] = parts;
+  const [day, month, year] = datePart.split("/").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  if (isNaN(date)) return null;
+  return date.getTime();
+}
+
+// -------------------------
 // INTERACTIONS
-// =====================
+// -------------------------
 client.on("interactionCreate", async (interaction) => {
   try {
     console.debug(`[DEBUG] Interaction received: type=${interaction.type}, customId=${interaction.customId || interaction.commandName}`);
@@ -90,7 +110,7 @@ client.on("interactionCreate", async (interaction) => {
           const fields = [
             ["title", "Task Title"],
             ["assign", "Assign User ID"],
-            ["due", "Due (day/month/year hh:mm)"],
+            ["due", "Due (DD/MM/YYYY HH:MM or YYYY-MM-DD HH:MM)"],
             ["details", "Subtasks (one per line)", TextInputStyle.Paragraph]
           ];
           modal.addComponents(fields.map(([id,label,style]) =>
@@ -143,10 +163,20 @@ client.on("interactionCreate", async (interaction) => {
         const subtasks = interaction.fields.getTextInputValue("details")
           .split("\n").filter(x => x.trim()).map(x => ({ name: x, done: false }));
 
+        // Safe date parsing
+        const dueInput = interaction.fields.getTextInputValue("due");
+        const parsedDate = parseDueDate(dueInput);
+        if (!parsedDate) {
+          return interaction.reply({
+            content: "❌ Invalid date format. Use `DD/MM/YYYY HH:MM` or `YYYY-MM-DD HH:MM`",
+            ephemeral: true
+          });
+        }
+
         await createTask({
           title: interaction.fields.getTextInputValue("title"),
           assigned_to: interaction.fields.getTextInputValue("assign"),
-          due_date: Date.parse(interaction.fields.getTextInputValue("due")),
+          due_date: parsedDate,
           subtasks,
           channel_id: interaction.channel.id
         });
@@ -160,10 +190,19 @@ client.on("interactionCreate", async (interaction) => {
         const subtasks = interaction.fields.getTextInputValue("details")
           .split("\n").filter(x => x.trim()).map(x => ({ name: x, done: false }));
 
+        const dueInput = interaction.fields.getTextInputValue("due");
+        const parsedDate = parseDueDate(dueInput);
+        if (!parsedDate) {
+          return interaction.reply({
+            content: "❌ Invalid date format. Use `DD/MM/YYYY HH:MM` or `YYYY-MM-DD HH:MM`",
+            ephemeral: true
+          });
+        }
+
         await updateTask(taskId, {
           title: interaction.fields.getTextInputValue("title"),
           assigned_to: interaction.fields.getTextInputValue("assign"),
-          due_date: Date.parse(interaction.fields.getTextInputValue("due")),
+          due_date: parsedDate,
           subtasks: JSON.stringify(subtasks)
         });
 
@@ -217,7 +256,7 @@ client.on("interactionCreate", async (interaction) => {
           const fields = [
             ["title", "Task Title", task.title],
             ["assign", "Assign User ID", task.assigned_to],
-            ["due", "Due (day/month/year hh:mm)", new Date(task.due_date).toISOString().slice(0,16)],
+            ["due", "Due (DD/MM/YYYY HH:MM)", new Date(task.due_date).toISOString().slice(0,16)],
             ["details", "Subtasks (one per line)", JSON.parse(task.subtasks).map(s => s.name).join("\n")]
           ];
           modal.addComponents(fields.map(([id, label, value]) =>
@@ -281,11 +320,11 @@ client.on("interactionCreate", async (interaction) => {
       interaction.reply({ content: "❌ Something went wrong.", ephemeral: true }).catch(() => {});
     }
   }
-}); 
+});
 
-// =====================
+// -------------------------
 // STARTUP
-// =====================
+// -------------------------
 client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   const rest = new REST({ version: '10' }).setToken(token);
