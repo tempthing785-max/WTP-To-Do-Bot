@@ -38,6 +38,8 @@ async function renderPanel(channel, client) {
     .setColor(panelConfig.color || "#0099ff")
     .setTimestamp();
 
+  if (panelConfig.imageUrl) embed.setImage(panelConfig.imageUrl);
+
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("create").setLabel("➕ Create").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId("view").setLabel("📖 View").setStyle(ButtonStyle.Primary),
