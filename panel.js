@@ -2,20 +2,28 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("
 const { getTasks } = require("./taskManager");
 const fs = require("fs");
 
-async function renderPanel(channel, client) {
-  // Load panel config for this channel
-  let config = { panels: [] };
-  if (fs.existsSync("./config.json")) {
-    config = JSON.parse(fs.readFileSync("./config.json"));
-  }
-  const panelConfig = config.panels.find(p => p.channelId === channel.id);
+// ---------------------
+// Helper: load config
+// ---------------------
+function loadConfig() {
+  if (!fs.existsSync("./config.json")) return { panels: [] };
+  const data = JSON.parse(fs.readFileSync("./config.json"));
+  if (!data.panels) data.panels = [];
+  return data;
+}
 
-  if (!panelConfig) return;
+// ---------------------
+// Render the panel
+// ---------------------
+async function renderPanel(channel, client) {
+  const config = loadConfig();
+  const panelConfig = config.panels.find(p => p.channelId === channel.id);
+  if (!panelConfig) return; // no panel configured for this channel
 
   const tasks = await getTasks(channel.id);
   let pending = "", completed = "";
 
-  for (let t of tasks) {
+  for (const t of tasks) {
     const subs = JSON.parse(t.subtasks);
     const done = subs.filter(s => s.done).length;
     const total = subs.length;
@@ -38,12 +46,30 @@ async function renderPanel(channel, client) {
     new ButtonBuilder().setCustomId("refresh").setLabel("🔄").setStyle(ButtonStyle.Secondary)
   );
 
-  // Fetch last 10 messages in the channel and update existing panel
-  const messages = await channel.messages.fetch({ limit: 10 });
-  const existing = messages.find(m => m.author.id === client.user.id);
+  // ---------------------
+  // Fetch the panel message by saved ID
+  // ---------------------
+  let existing = null;
+  if (panelConfig.messageId) {
+    try {
+      existing = await channel.messages.fetch(panelConfig.messageId);
+    } catch { existing = null; }
+  }
 
-  if (existing) await existing.edit({ embeds: [embed], components: [row] });
-  else await channel.send({ embeds: [embed], components: [row] });
+  if (existing) {
+    // edit existing panel
+    await existing.edit({ embeds: [embed], components: [row] });
+  } else {
+    // send new panel and save its message ID
+    const msg = await channel.send({ embeds: [embed], components: [row] });
+    panelConfig.messageId = msg.id;
+
+    // update config.json with messageId
+    const fullConfig = loadConfig();
+    const index = fullConfig.panels.findIndex(p => p.channelId === channel.id);
+    if (index >= 0) fullConfig.panels[index] = panelConfig;
+    fs.writeFileSync("./config.json", JSON.stringify(fullConfig, null, 2));
+  }
 }
 
 module.exports = { renderPanel };
